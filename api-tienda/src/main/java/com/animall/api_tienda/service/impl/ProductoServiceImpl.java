@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.animall.api_tienda.model.Categoria;
 import com.animall.api_tienda.model.Producto;
 import com.animall.api_tienda.repository.CategoriaRepository;
+import com.animall.api_tienda.repository.FavoritoRepository;
 import com.animall.api_tienda.repository.ProductoRepository;
 import com.animall.api_tienda.service.ProductoService;
 
@@ -18,10 +19,14 @@ public class ProductoServiceImpl implements ProductoService {
 
     private final ProductoRepository productoRepository;
     private final CategoriaRepository categoriaRepository;
+    private final FavoritoRepository favoritoRepository;
 
-    public ProductoServiceImpl(ProductoRepository productoRepository, CategoriaRepository categoriaRepository) {
+    public ProductoServiceImpl(ProductoRepository productoRepository,
+                               CategoriaRepository categoriaRepository,
+                               FavoritoRepository favoritoRepository) {
         this.productoRepository = productoRepository;
         this.categoriaRepository = categoriaRepository;
+        this.favoritoRepository = favoritoRepository;
     }
 
     @Override
@@ -79,7 +84,13 @@ public class ProductoServiceImpl implements ProductoService {
 
     @Override
     public void eliminar(Long id) {
-        productoRepository.deleteById(id);
+        Producto producto = productoRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado con id " + id));
+
+        // Regla: eliminar un producto elimina sus favoritos asociados.
+        favoritoRepository.deleteAll(producto.getFavoritos());
+
+        productoRepository.delete(producto);
     }
 }
 
