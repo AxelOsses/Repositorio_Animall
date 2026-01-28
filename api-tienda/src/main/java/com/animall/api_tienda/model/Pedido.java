@@ -49,6 +49,14 @@ public class Pedido {
     @JoinColumn(name = "id_usuario", nullable = false)
     private Usuario usuario;
 
+    /**
+     * Dirección usada para este pedido. Se guarda como referencia histórica
+     * y no se actualiza si el usuario modifica sus direcciones luego.
+     */
+    @ManyToOne
+    @JoinColumn(name = "id_direccion", nullable = false)
+    private Direccion direccion;
+
     @ManyToOne
     @JoinColumn(name = "id_estado_pedido", nullable = false)
     private EstadoPedido estado;
