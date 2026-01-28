@@ -1,0 +1,85 @@
+package com.animall.api_tienda.service.impl;
+
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.animall.api_tienda.model.Categoria;
+import com.animall.api_tienda.model.Producto;
+import com.animall.api_tienda.repository.CategoriaRepository;
+import com.animall.api_tienda.repository.ProductoRepository;
+import com.animall.api_tienda.service.ProductoService;
+
+@Service
+@Transactional
+public class ProductoServiceImpl implements ProductoService {
+
+    private final ProductoRepository productoRepository;
+    private final CategoriaRepository categoriaRepository;
+
+    public ProductoServiceImpl(ProductoRepository productoRepository, CategoriaRepository categoriaRepository) {
+        this.productoRepository = productoRepository;
+        this.categoriaRepository = categoriaRepository;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Producto> listarTodos() {
+        return productoRepository.findAll();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Producto> buscarPorId(Long id) {
+        return productoRepository.findById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Producto> buscarPorNombre(String nombre) {
+        return productoRepository.findByNombre(nombre);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Producto> listarPorCategoria(Long idCategoria) {
+        Categoria categoria = categoriaRepository.findById(idCategoria)
+                .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada con id " + idCategoria));
+        return productoRepository.findByCategoria(categoria);
+    }
+
+    @Override
+    public Producto crear(Producto producto, Long idCategoria) {
+        Categoria categoria = categoriaRepository.findById(idCategoria)
+                .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada con id " + idCategoria));
+        producto.setId(null);
+        producto.setCategoria(categoria);
+        return productoRepository.save(producto);
+    }
+
+    @Override
+    public Producto actualizar(Long id, Producto producto, Long idCategoria) {
+        Categoria categoria = categoriaRepository.findById(idCategoria)
+                .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada con id " + idCategoria));
+
+        return productoRepository.findById(id)
+                .map(actual -> {
+                    actual.setNombre(producto.getNombre());
+                    actual.setDescripcion(producto.getDescripcion());
+                    actual.setPrecio(producto.getPrecio());
+                    actual.setPorcentajeDescuento(producto.getPorcentajeDescuento());
+                    actual.setStock(producto.getStock());
+                    actual.setCategoria(categoria);
+                    return productoRepository.save(actual);
+                })
+                .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado con id " + id));
+    }
+
+    @Override
+    public void eliminar(Long id) {
+        productoRepository.deleteById(id);
+    }
+}
+
