@@ -3,6 +3,8 @@ package com.animall.api_tienda.service;
 import java.util.List;
 import java.util.Optional;
 
+import com.animall.api_tienda.dto.CategoriaCreateRequest;
+import com.animall.api_tienda.dto.CategoriaUpdateRequest;
 import com.animall.api_tienda.model.Categoria;
 
 public interface CategoriaService {
@@ -13,9 +15,9 @@ public interface CategoriaService {
 
     Optional<Categoria> buscarPorNombre(String nombre);
 
-    Categoria crear(Categoria categoria);
+    Categoria crear(CategoriaCreateRequest request);
 
-    Categoria actualizar(Long id, Categoria categoria);
+    Categoria actualizar(Long id, CategoriaUpdateRequest request);
 
     void eliminar(Long id);
 }

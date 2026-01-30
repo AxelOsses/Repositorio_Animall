@@ -16,8 +16,12 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import com.animall.api_tienda.model.Pedido;
 import com.animall.api_tienda.service.PedidoService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 @RestController
 @RequestMapping("/api")
+@Tag(name = "Pedidos", description = "Pedidos por usuario y cambio de estado")
 public class PedidoController {
 
     private final PedidoService pedidoService;
@@ -39,11 +43,13 @@ public class PedidoController {
     }
 
     @GetMapping("/usuarios/{usuarioId}/pedidos")
+    @Operation(summary = "Listar pedidos del usuario")
     public List<Pedido> listarPedidosPorUsuario(@PathVariable Long usuarioId) {
         return pedidoService.listarPorUsuario(usuarioId);
     }
 
     @GetMapping("/pedidos/{pedidoId}")
+    @Operation(summary = "Obtener pedido por ID")
     public ResponseEntity<Pedido> obtenerPedidoPorId(@PathVariable Long pedidoId) {
         return pedidoService.buscarPorId(pedidoId)
                 .map(ResponseEntity::ok)
@@ -56,6 +62,7 @@ public class PedidoController {
      * en un sistema real esto debería venir del contexto de seguridad.
      */
     @PutMapping("/pedidos/{pedidoId}/estado")
+    @Operation(summary = "Cambiar estado del pedido (admin)")
     public ResponseEntity<Pedido> cambiarEstado(@PathVariable Long pedidoId,
                                                 @RequestParam String nuevoEstado,
                                                 @RequestParam(defaultValue = "false") boolean esAdmin) {

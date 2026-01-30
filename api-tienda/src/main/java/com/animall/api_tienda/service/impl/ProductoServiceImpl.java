@@ -6,6 +6,8 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.animall.api_tienda.dto.ProductoCreateRequest;
+import com.animall.api_tienda.dto.ProductoUpdateRequest;
 import com.animall.api_tienda.model.Categoria;
 import com.animall.api_tienda.model.Producto;
 import com.animall.api_tienda.repository.CategoriaRepository;
@@ -56,27 +58,35 @@ public class ProductoServiceImpl implements ProductoService {
     }
 
     @Override
-    public Producto crear(Producto producto, Long idCategoria) {
-        Categoria categoria = categoriaRepository.findById(idCategoria)
-                .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada con id " + idCategoria));
-        producto.setId(null);
+    public Producto crear(ProductoCreateRequest request) {
+        Categoria categoria = categoriaRepository.findById(request.getCategoriaId())
+                .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada con id " + request.getCategoriaId()));
+        Producto producto = new Producto();
+        producto.setNombre(request.getNombre());
+        producto.setDescripcion(request.getDescripcion());
+        producto.setPrecio(request.getPrecio());
+        producto.setPorcentajeDescuento(request.getPorcentajeDescuento() != null ? request.getPorcentajeDescuento() : 0);
+        producto.setStock(request.getStock());
+        producto.setImagen(request.getImagen());
         producto.setCategoria(categoria);
         return productoRepository.save(producto);
     }
 
     @Override
-    public Producto actualizar(Long id, Producto producto, Long idCategoria) {
-        Categoria categoria = categoriaRepository.findById(idCategoria)
-                .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada con id " + idCategoria));
-
+    public Producto actualizar(Long id, ProductoUpdateRequest request) {
         return productoRepository.findById(id)
                 .map(actual -> {
-                    actual.setNombre(producto.getNombre());
-                    actual.setDescripcion(producto.getDescripcion());
-                    actual.setPrecio(producto.getPrecio());
-                    actual.setPorcentajeDescuento(producto.getPorcentajeDescuento());
-                    actual.setStock(producto.getStock());
-                    actual.setCategoria(categoria);
+                    if (request.getNombre() != null) actual.setNombre(request.getNombre());
+                    if (request.getDescripcion() != null) actual.setDescripcion(request.getDescripcion());
+                    if (request.getPrecio() != null) actual.setPrecio(request.getPrecio());
+                    if (request.getPorcentajeDescuento() != null) actual.setPorcentajeDescuento(request.getPorcentajeDescuento());
+                    if (request.getStock() != null) actual.setStock(request.getStock());
+                    if (request.getImagen() != null) actual.setImagen(request.getImagen());
+                    if (request.getCategoriaId() != null) {
+                        Categoria categoria = categoriaRepository.findById(request.getCategoriaId())
+                                .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada con id " + request.getCategoriaId()));
+                        actual.setCategoria(categoria);
+                    }
                     return productoRepository.save(actual);
                 })
                 .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado con id " + id));

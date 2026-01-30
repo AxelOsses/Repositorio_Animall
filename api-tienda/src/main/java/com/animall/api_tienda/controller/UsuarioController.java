@@ -18,10 +18,14 @@ import com.animall.api_tienda.dto.UsuarioCreateRequest;
 import com.animall.api_tienda.dto.UsuarioUpdateRequest;
 import com.animall.api_tienda.model.Usuario;
 import com.animall.api_tienda.service.UsuarioService;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/usuarios")
+@Tag(name = "Usuarios", description = "Registro y gestión de usuarios")
 public class UsuarioController {
 
     private final UsuarioService usuarioService;
@@ -31,11 +35,13 @@ public class UsuarioController {
     }
 
     @GetMapping
+    @Operation(summary = "Listar usuarios")
     public List<Usuario> listarTodos() {
         return usuarioService.listarTodos();
     }
 
     @GetMapping("/{id}")
+    @Operation(summary = "Obtener usuario por ID")
     public ResponseEntity<Usuario> obtenerPorId(@PathVariable Long id) {
         return usuarioService.buscarPorId(id)
                 .map(ResponseEntity::ok)
@@ -43,6 +49,7 @@ public class UsuarioController {
     }
 
     @PostMapping
+    @Operation(summary = "Crear usuario")
     public ResponseEntity<Usuario> crear(@Valid @RequestBody UsuarioCreateRequest request) {
         Usuario creado = usuarioService.crear(request);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
@@ -63,6 +70,7 @@ public class UsuarioController {
     }
 
     @DeleteMapping("/{id}")
+    @Operation(summary = "Eliminar usuario")
     public ResponseEntity<Void> eliminar(@PathVariable Long id) {
         usuarioService.eliminar(id);
         return ResponseEntity.noContent().build();

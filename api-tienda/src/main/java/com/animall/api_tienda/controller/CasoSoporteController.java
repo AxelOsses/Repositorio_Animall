@@ -16,8 +16,12 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import com.animall.api_tienda.model.CasoSoporte;
 import com.animall.api_tienda.service.CasoSoporteService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 @RestController
 @RequestMapping("/api")
+@Tag(name = "Casos de soporte", description = "Casos de soporte por usuario")
 public class CasoSoporteController {
 
     private final CasoSoporteService casoSoporteService;
@@ -27,6 +31,7 @@ public class CasoSoporteController {
     }
 
     @PostMapping("/usuarios/{usuarioId}/casos-soporte")
+    @Operation(summary = "Crear caso de soporte")
     public ResponseEntity<CasoSoporte> crearCaso(@PathVariable Long usuarioId,
                                                  @RequestParam Long categoriaSoporteId,
                                                  @RequestParam String descripcion) {
@@ -39,11 +44,13 @@ public class CasoSoporteController {
     }
 
     @GetMapping("/usuarios/{usuarioId}/casos-soporte")
+    @Operation(summary = "Listar casos del usuario")
     public List<CasoSoporte> listarCasosPorUsuario(@PathVariable Long usuarioId) {
         return casoSoporteService.listarPorUsuario(usuarioId);
     }
 
     @GetMapping("/casos-soporte/{casoId}")
+    @Operation(summary = "Obtener caso por ID")
     public ResponseEntity<CasoSoporte> obtenerCasoPorId(@PathVariable Long casoId) {
         return casoSoporteService.buscarPorId(casoId)
                 .map(ResponseEntity::ok)
@@ -55,6 +62,7 @@ public class CasoSoporteController {
      * De forma didáctica se recibe esAdmin por parámetro.
      */
     @PutMapping("/casos-soporte/{casoId}/estado")
+    @Operation(summary = "Cambiar estado del caso (admin)")
     public ResponseEntity<CasoSoporte> cambiarEstado(@PathVariable Long casoId,
                                                      @RequestParam String nuevoEstado,
                                                      @RequestParam(defaultValue = "false") boolean esAdmin) {

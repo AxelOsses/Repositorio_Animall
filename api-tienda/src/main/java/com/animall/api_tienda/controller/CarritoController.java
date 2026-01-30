@@ -13,8 +13,12 @@ import org.springframework.web.bind.annotation.RestController;
 import com.animall.api_tienda.model.Carrito;
 import com.animall.api_tienda.service.CarritoService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 @RestController
 @RequestMapping("/api/usuarios/{usuarioId}/carrito")
+@Tag(name = "Carrito", description = "Carrito e ítems por usuario")
 public class CarritoController {
 
     private final CarritoService carritoService;
@@ -24,11 +28,13 @@ public class CarritoController {
     }
 
     @GetMapping
+    @Operation(summary = "Obtener carrito del usuario")
     public Carrito obtenerCarrito(@PathVariable Long usuarioId) {
         return carritoService.obtenerOCrearCarritoParaUsuario(usuarioId);
     }
 
     @PostMapping("/items")
+    @Operation(summary = "Agregar producto al carrito")
     public ResponseEntity<Carrito> agregarProducto(@PathVariable Long usuarioId,
                                                    @RequestParam Long productoId,
                                                    @RequestParam int cantidad) {
@@ -37,6 +43,7 @@ public class CarritoController {
     }
 
     @PutMapping("/items/{itemId}")
+    @Operation(summary = "Actualizar cantidad de ítem")
     public ResponseEntity<Carrito> actualizarCantidad(@PathVariable Long usuarioId,
                                                       @PathVariable Long itemId,
                                                       @RequestParam int cantidad) {
@@ -45,6 +52,7 @@ public class CarritoController {
     }
 
     @DeleteMapping("/items/{itemId}")
+    @Operation(summary = "Eliminar ítem del carrito")
     public ResponseEntity<Carrito> eliminarItem(@PathVariable Long usuarioId,
                                                 @PathVariable Long itemId) {
         Carrito carrito = carritoService.eliminarItem(usuarioId, itemId);
@@ -52,6 +60,7 @@ public class CarritoController {
     }
 
     @DeleteMapping("/items")
+    @Operation(summary = "Vaciar carrito")
     public ResponseEntity<Carrito> vaciarCarrito(@PathVariable Long usuarioId) {
         Carrito carrito = carritoService.vaciarCarrito(usuarioId);
         return ResponseEntity.ok(carrito);
