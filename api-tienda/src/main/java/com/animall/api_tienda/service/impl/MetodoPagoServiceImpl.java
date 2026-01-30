@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.animall.api_tienda.model.MetodoPago;
 import com.animall.api_tienda.model.Usuario;
 import com.animall.api_tienda.repository.MetodoPagoRepository;
+import com.animall.api_tienda.repository.PedidoRepository;
 import com.animall.api_tienda.repository.UsuarioRepository;
 import com.animall.api_tienda.service.MetodoPagoService;
 
@@ -18,11 +19,14 @@ public class MetodoPagoServiceImpl implements MetodoPagoService {
 
     private final MetodoPagoRepository metodoPagoRepository;
     private final UsuarioRepository usuarioRepository;
+    private final PedidoRepository pedidoRepository;
 
     public MetodoPagoServiceImpl(MetodoPagoRepository metodoPagoRepository,
-                                 UsuarioRepository usuarioRepository) {
+                                 UsuarioRepository usuarioRepository,
+                                 PedidoRepository pedidoRepository) {
         this.metodoPagoRepository = metodoPagoRepository;
         this.usuarioRepository = usuarioRepository;
+        this.pedidoRepository = pedidoRepository;
     }
 
     @Override
@@ -41,6 +45,9 @@ public class MetodoPagoServiceImpl implements MetodoPagoService {
 
     @Override
     public MetodoPago crear(Long usuarioId, MetodoPago metodoPago) {
+        if (metodoPago == null) {
+            throw new IllegalArgumentException("El método de pago no puede ser null");
+        }
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado con id " + usuarioId));
         metodoPago.setId(null);
@@ -50,7 +57,10 @@ public class MetodoPagoServiceImpl implements MetodoPagoService {
 
     @Override
     public MetodoPago actualizar(Long id, Long usuarioId, MetodoPago metodoPago) {
-        Usuario usuario = usuarioRepository.findById(usuarioId)
+        if (metodoPago == null) {
+            throw new IllegalArgumentException("El método de pago no puede ser null");
+        }
+        usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado con id " + usuarioId));
         return metodoPagoRepository.findById(id)
                 .filter(m -> m.getUsuario().getId().equals(usuarioId))
@@ -68,6 +78,9 @@ public class MetodoPagoServiceImpl implements MetodoPagoService {
                 .orElseThrow(() -> new IllegalArgumentException("Método de pago no encontrado con id " + id));
         if (!metodoPago.getUsuario().getId().equals(usuarioId)) {
             throw new IllegalArgumentException("El método de pago no pertenece al usuario");
+        }
+        if (pedidoRepository.existsByMetodoPago(metodoPago)) {
+            throw new IllegalStateException("No se puede eliminar el método de pago porque está asociado a uno o más pedidos.");
         }
         metodoPagoRepository.delete(metodoPago);
     }
