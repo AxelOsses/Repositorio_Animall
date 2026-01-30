@@ -60,6 +60,13 @@ public class Producto {
     @Column(nullable = false)
     private Integer stock;
 
+    /**
+     * URL o enlace de referencia a la imagen del producto.
+     */
+    @Size(max = 500)
+    @Column(name = "imagen", length = 500)
+    private String imagen;
+
     @ManyToOne
     @JoinColumn(name = "id_categoria", nullable = false)
     private Categoria categoria;

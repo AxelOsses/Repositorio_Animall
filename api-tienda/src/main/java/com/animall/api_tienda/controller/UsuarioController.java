@@ -14,8 +14,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import com.animall.api_tienda.dto.UsuarioCreateRequest;
+import com.animall.api_tienda.dto.UsuarioUpdateRequest;
 import com.animall.api_tienda.model.Usuario;
 import com.animall.api_tienda.service.UsuarioService;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/usuarios")
@@ -40,8 +43,8 @@ public class UsuarioController {
     }
 
     @PostMapping
-    public ResponseEntity<Usuario> crear(@RequestBody Usuario usuario) {
-        Usuario creado = usuarioService.crear(usuario);
+    public ResponseEntity<Usuario> crear(@Valid @RequestBody UsuarioCreateRequest request) {
+        Usuario creado = usuarioService.crear(request);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
                 .buildAndExpand(creado.getId())
@@ -50,9 +53,9 @@ public class UsuarioController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Usuario> actualizar(@PathVariable Long id, @RequestBody Usuario usuario) {
+    public ResponseEntity<Usuario> actualizar(@PathVariable Long id, @Valid @RequestBody UsuarioUpdateRequest request) {
         try {
-            Usuario actualizado = usuarioService.actualizar(id, usuario);
+            Usuario actualizado = usuarioService.actualizar(id, request);
             return ResponseEntity.ok(actualizado);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();

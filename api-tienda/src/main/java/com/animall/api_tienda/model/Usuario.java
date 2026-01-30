@@ -57,6 +57,13 @@ public class Usuario {
     @Column(nullable = false)
     private String password;
 
+    /**
+     * URL o enlace de referencia a la imagen de perfil del usuario.
+     */
+    @Size(max = 500)
+    @Column(name = "imagen_perfil", length = 500)
+    private String imagenPerfil;
+
     @NotNull
     @Min(0)
     @Column(nullable = false)
