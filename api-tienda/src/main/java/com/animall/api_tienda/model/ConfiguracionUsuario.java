@@ -1,5 +1,6 @@
 package com.animall.api_tienda.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -37,6 +38,7 @@ public class ConfiguracionUsuario {
     private String idioma = "es";
 
     @OneToOne(mappedBy = "configuracion")
+    @JsonIgnore
     private Usuario usuario;
 }
 

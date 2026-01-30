@@ -3,6 +3,7 @@ package com.animall.api_tienda.model;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -64,12 +65,15 @@ public class Producto {
     private Categoria categoria;
 
     @OneToMany(mappedBy = "producto")
+    @JsonIgnore
     private List<Favorito> favoritos = new ArrayList<>();
 
     @OneToMany(mappedBy = "producto")
+    @JsonIgnore
     private List<ItemCarrito> itemsCarrito = new ArrayList<>();
 
     @OneToMany(mappedBy = "producto")
+    @JsonIgnore
     private List<DetallePedido> detallesPedido = new ArrayList<>();
 }
 
