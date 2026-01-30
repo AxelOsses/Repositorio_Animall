@@ -133,6 +133,7 @@ public class PedidoServiceImpl implements PedidoService {
             detalle.setCantidad(cantidad);
             detalle.setPrecioUnitario(precioFinalUnitario);
             detallePedidoRepository.save(detalle);
+            pedidoGuardado.getDetalles().add(detalle);
 
             producto.setStock(producto.getStock() - cantidad);
         }
@@ -153,13 +154,13 @@ public class PedidoServiceImpl implements PedidoService {
     public List<Pedido> listarPorUsuario(Long usuarioId) {
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado con id " + usuarioId));
-        return pedidoRepository.findByUsuario(usuario);
+        return pedidoRepository.findByUsuarioWithDetalles(usuario);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Optional<Pedido> buscarPorId(Long id) {
-        return pedidoRepository.findById(id);
+        return pedidoRepository.findByIdWithDetalles(id);
     }
 
     @Override
@@ -191,7 +192,7 @@ public class PedidoServiceImpl implements PedidoService {
         }
 
         pedido.setEstado(nuevoEstado);
-        return pedido;
+        return pedidoRepository.findByIdWithDetalles(pedido.getId()).orElse(pedido);
     }
 }
 

@@ -2,22 +2,27 @@ package com.animall.api_tienda.controller;
 
 import java.net.URI;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import com.animall.api_tienda.dto.PedidoCreateDTO;
+import com.animall.api_tienda.dto.PedidoResponseDTO;
 import com.animall.api_tienda.model.Pedido;
 import com.animall.api_tienda.service.PedidoService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api")
@@ -31,27 +36,32 @@ public class PedidoController {
     }
 
     @PostMapping("/usuarios/{usuarioId}/pedidos")
-    public ResponseEntity<Pedido> confirmarPedidoDesdeCarrito(@PathVariable Long usuarioId,
-                                                              @RequestParam Long direccionId,
-                                                              @RequestParam Long metodoPagoId) {
-        Pedido pedido = pedidoService.confirmarPedidoDesdeCarrito(usuarioId, direccionId, metodoPagoId);
+    @Operation(summary = "Confirmar pedido desde carrito",
+            description = "Request: solo direccionId y metodoPagoId. Response: pedido generado por el sistema (id, total, estado, detalles, etc.).")
+    public ResponseEntity<PedidoResponseDTO> confirmarPedidoDesdeCarrito(@PathVariable Long usuarioId,
+                                                                          @Valid @RequestBody PedidoCreateDTO request) {
+        Pedido pedido = pedidoService.confirmarPedidoDesdeCarrito(usuarioId, request.getDireccionId(), request.getMetodoPagoId());
+        PedidoResponseDTO response = PedidoResponseDTO.from(pedido);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
                 .buildAndExpand(pedido.getId())
                 .toUri();
-        return ResponseEntity.created(location).body(pedido);
+        return ResponseEntity.created(location).body(response);
     }
 
     @GetMapping("/usuarios/{usuarioId}/pedidos")
     @Operation(summary = "Listar pedidos del usuario")
-    public List<Pedido> listarPedidosPorUsuario(@PathVariable Long usuarioId) {
-        return pedidoService.listarPorUsuario(usuarioId);
+    public List<PedidoResponseDTO> listarPedidosPorUsuario(@PathVariable Long usuarioId) {
+        return pedidoService.listarPorUsuario(usuarioId).stream()
+                .map(PedidoResponseDTO::from)
+                .collect(Collectors.toList());
     }
 
     @GetMapping("/pedidos/{pedidoId}")
     @Operation(summary = "Obtener pedido por ID")
-    public ResponseEntity<Pedido> obtenerPedidoPorId(@PathVariable Long pedidoId) {
+    public ResponseEntity<PedidoResponseDTO> obtenerPedidoPorId(@PathVariable Long pedidoId) {
         return pedidoService.buscarPorId(pedidoId)
+                .map(PedidoResponseDTO::from)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -63,12 +73,12 @@ public class PedidoController {
      */
     @PutMapping("/pedidos/{pedidoId}/estado")
     @Operation(summary = "Cambiar estado del pedido (admin)")
-    public ResponseEntity<Pedido> cambiarEstado(@PathVariable Long pedidoId,
-                                                @RequestParam String nuevoEstado,
-                                                @RequestParam(defaultValue = "false") boolean esAdmin) {
+    public ResponseEntity<PedidoResponseDTO> cambiarEstado(@PathVariable Long pedidoId,
+                                                            @RequestParam String nuevoEstado,
+                                                            @RequestParam(defaultValue = "false") boolean esAdmin) {
         try {
             Pedido actualizado = pedidoService.cambiarEstado(pedidoId, nuevoEstado, esAdmin);
-            return ResponseEntity.ok(actualizado);
+            return ResponseEntity.ok(PedidoResponseDTO.from(actualizado));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();
         } catch (IllegalStateException e) {
