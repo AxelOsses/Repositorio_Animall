@@ -15,6 +15,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * Dirección de envío/facturación asociada a un usuario.
  */
@@ -28,6 +30,7 @@ public class Direccion {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_direccion", updatable = false, nullable = false)
+    @Schema(accessMode = Schema.AccessMode.READ_ONLY, description = "Generado por el servidor. No enviar en POST.")
     private Long id;
 
     @NotBlank

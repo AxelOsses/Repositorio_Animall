@@ -15,6 +15,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * Método de pago registrado por un usuario (tarjeta, cuenta, etc.).
  */
@@ -28,6 +30,7 @@ public class MetodoPago {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_metodo_pago", updatable = false, nullable = false)
+    @Schema(accessMode = Schema.AccessMode.READ_ONLY, description = "Generado por el servidor. No enviar en POST.")
     private Long id;
 
     @NotBlank

@@ -49,7 +49,7 @@ public class CategoriaController {
     }
 
     @PostMapping
-    @Operation(summary = "Crear categoría")
+    @Operation(summary = "Crear categoría", description = "Request: solo { \"nombre\": \"string\" }. El id se genera en el servidor y se devuelve en la respuesta.")
     public ResponseEntity<Categoria> crear(@Valid @RequestBody CategoriaCreateRequest request) {
         Categoria creada = categoriaService.crear(request);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()

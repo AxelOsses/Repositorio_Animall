@@ -7,7 +7,6 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.animall.api_tienda.dto.ConfiguracionUsuarioRequest;
 import com.animall.api_tienda.dto.UsuarioCreateRequest;
 import com.animall.api_tienda.dto.UsuarioUpdateRequest;
 import com.animall.api_tienda.model.ConfiguracionUsuario;
