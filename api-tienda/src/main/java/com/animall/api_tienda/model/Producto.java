@@ -79,8 +79,7 @@ public class Producto {
     @JsonIgnore
     private List<ItemCarrito> itemsCarrito = new ArrayList<>();
 
-    @OneToMany(mappedBy = "producto")
-    @JsonIgnore
-    private List<DetallePedido> detallesPedido = new ArrayList<>();
+    // ❌ ELIMINADO: @OneToMany(mappedBy = "producto") List<DetallePedido>
+    // DetallePedido ya NO tiene relación con Producto (es un snapshot inmutable)
 }
 
