@@ -15,7 +15,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import com.animall.api_tienda.dto.CrearPedidoRequest;
 import com.animall.api_tienda.dto.PedidoCreateDTO;
 import com.animall.api_tienda.dto.PedidoResponseDTO;
 import com.animall.api_tienda.model.Pedido;
@@ -37,41 +36,25 @@ public class PedidoController {
     }
 
     /**
-     * Endpoint principal para crear un pedido directamente (sin usar carrito).
-     * El frontend envía solo IDs y cantidades; el backend calcula todo.
-     * 
-     * Request esperada:
-     * {
-     *   "usuarioId": 1,
-     *   "direccionId": 3,
-     *   "metodoPagoId": 2,
-     *   "items": [
-     *     { "productoId": 5, "cantidad": 2 },
-     *     { "productoId": 8, "cantidad": 1 }
-     *   ]
-     * }
-     */
-    @PostMapping("/pedidos")
-    @Operation(summary = "Crear pedido directo",
-            description = "El frontend envía usuarioId, direccionId, metodoPagoId e items (productoId + cantidad). " +
-                    "El backend valida stock, calcula precios con descuento, asigna estado inicial (CREADO) y persiste todo.")
-    public ResponseEntity<PedidoResponseDTO> crearPedidoDirecto(@Valid @RequestBody CrearPedidoRequest request) {
-        Pedido pedido = pedidoService.crearPedidoDirecto(request);
-        PedidoResponseDTO response = PedidoResponseDTO.from(pedido);
-        URI location = ServletUriComponentsBuilder.fromCurrentContextPath()
-                .path("/api/pedidos/{id}")
-                .buildAndExpand(pedido.getId())
-                .toUri();
-        return ResponseEntity.created(location).body(response);
-    }
-
-    /**
-     * Confirma un pedido tomando los items del carrito del usuario.
-     * Útil cuando el usuario ya agregó productos al carrito.
+     * Confirma un pedido tomando los items del carrito activo del usuario.
+     * El frontend solo envía direccionId y metodoPagoId.
+     * El backend:
+     * - Obtiene los ItemCarrito del carrito del usuario
+     * - Valida stock disponible
+     * - Calcula precioUnitario con descuento desde BD
+     * - Crea DetallePedido
+     * - Calcula el total del pedido
+     * - Asigna estado inicial (CREADO)
+     * - Actualiza stock de productos
+     * - Limpia el carrito
+     * - Actualiza puntos y ahorro del usuario
      */
     @PostMapping("/usuarios/{usuarioId}/pedidos")
     @Operation(summary = "Confirmar pedido desde carrito",
-            description = "Request: solo direccionId y metodoPagoId. Response: pedido generado por el sistema (id, total, estado, detalles, etc.).")
+            description = "El frontend envía solo { direccionId, metodoPagoId }. " +
+                    "El backend obtiene los items del carrito del usuario, valida stock, " +
+                    "calcula precios con descuento, crea DetallePedido, actualiza stock y limpia el carrito. " +
+                    "Response: pedido completo generado por el sistema (sin entidades JPA expuestas).")
     public ResponseEntity<PedidoResponseDTO> confirmarPedidoDesdeCarrito(@PathVariable Long usuarioId,
                                                                           @Valid @RequestBody PedidoCreateDTO request) {
         Pedido pedido = pedidoService.confirmarPedidoDesdeCarrito(usuarioId, request.getDireccionId(), request.getMetodoPagoId());
