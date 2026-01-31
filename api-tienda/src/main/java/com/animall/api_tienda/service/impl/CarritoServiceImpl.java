@@ -35,8 +35,8 @@ public class CarritoServiceImpl implements CarritoService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public Carrito obtenerOCrearCarritoParaUsuario(Long usuarioId) {
+        // Nota: NO es readOnly porque puede crear un carrito nuevo
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado con id " + usuarioId));
 

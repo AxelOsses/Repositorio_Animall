@@ -15,13 +15,13 @@ import com.animall.api_tienda.model.MetodoPago;
 import com.animall.api_tienda.model.Pedido;
 import com.animall.api_tienda.model.Producto;
 import com.animall.api_tienda.model.Usuario;
-import com.animall.api_tienda.repository.CarritoRepository;
 import com.animall.api_tienda.repository.DireccionRepository;
 import com.animall.api_tienda.repository.EstadoPedidoRepository;
 import com.animall.api_tienda.repository.MetodoPagoRepository;
 import com.animall.api_tienda.repository.PedidoRepository;
 import com.animall.api_tienda.repository.ProductoRepository;
 import com.animall.api_tienda.repository.UsuarioRepository;
+import com.animall.api_tienda.service.CarritoService;
 import com.animall.api_tienda.service.PedidoService;
 
 /**
@@ -30,6 +30,9 @@ import com.animall.api_tienda.service.PedidoService;
  * El pedido es INMUTABLE una vez creado:
  * - Contiene snapshots de dirección, método de pago y productos
  * - No depende de entidades vivas que puedan cambiar
+ * 
+ * PRINCIPIO: Este servicio delega la lógica del carrito a CarritoService,
+ * respetando Single Responsibility y evitando acceso directo a CarritoRepository.
  */
 @Service
 @Transactional
@@ -39,26 +42,26 @@ public class PedidoServiceImpl implements PedidoService {
 
     private final PedidoRepository pedidoRepository;
     private final UsuarioRepository usuarioRepository;
-    private final CarritoRepository carritoRepository;
     private final DireccionRepository direccionRepository;
     private final MetodoPagoRepository metodoPagoRepository;
     private final EstadoPedidoRepository estadoPedidoRepository;
     private final ProductoRepository productoRepository;
+    private final CarritoService carritoService;  // ← Servicio, NO repositorio
 
     public PedidoServiceImpl(PedidoRepository pedidoRepository,
                              UsuarioRepository usuarioRepository,
-                             CarritoRepository carritoRepository,
                              DireccionRepository direccionRepository,
                              MetodoPagoRepository metodoPagoRepository,
                              EstadoPedidoRepository estadoPedidoRepository,
-                             ProductoRepository productoRepository) {
+                             ProductoRepository productoRepository,
+                             CarritoService carritoService) {
         this.pedidoRepository = pedidoRepository;
         this.usuarioRepository = usuarioRepository;
-        this.carritoRepository = carritoRepository;
         this.direccionRepository = direccionRepository;
         this.metodoPagoRepository = metodoPagoRepository;
         this.estadoPedidoRepository = estadoPedidoRepository;
         this.productoRepository = productoRepository;
+        this.carritoService = carritoService;
     }
 
     /**
@@ -66,7 +69,7 @@ public class PedidoServiceImpl implements PedidoService {
      * 
      * El frontend envía solo direccionId y metodoPagoId.
      * El backend:
-     * 1. Obtiene el carrito del usuario
+     * 1. Obtiene el carrito del usuario (delegando a CarritoService)
      * 2. Valida que no esté vacío
      * 3. COPIA los datos de dirección al pedido (snapshot)
      * 4. COPIA los datos de método de pago al pedido (snapshot)
@@ -74,7 +77,7 @@ public class PedidoServiceImpl implements PedidoService {
      * 6. Calcula el total como suma de subtotales
      * 7. Asigna estado inicial (CREADO)
      * 8. Descuenta stock de productos
-     * 9. Vacía el carrito
+     * 9. Vacía el carrito (delegando a CarritoService)
      * 10. Actualiza puntos y ahorro del usuario
      */
     @Override
@@ -83,15 +86,15 @@ public class PedidoServiceImpl implements PedidoService {
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado con id " + usuarioId));
 
-        // 2. Obtener y validar carrito
-        Carrito carrito = carritoRepository.findByUsuario(usuario)
-                .orElseThrow(() -> new IllegalStateException("El usuario no tiene carrito activo"));
+        // 2. Obtener carrito delegando a CarritoService (crea si no existe)
+        Carrito carrito = carritoService.obtenerOCrearCarritoParaUsuario(usuarioId);
 
+        // 3. Validar que el carrito no esté vacío
         if (carrito.getItems().isEmpty()) {
             throw new IllegalStateException("El carrito está vacío, no se puede confirmar el pedido");
         }
 
-        // 3. Validar dirección (debe pertenecer al usuario)
+        // 4. Validar dirección (debe pertenecer al usuario)
         Direccion direccion = direccionRepository.findById(direccionId)
                 .orElseThrow(() -> new IllegalArgumentException("Dirección no encontrada con id " + direccionId));
 
@@ -99,7 +102,7 @@ public class PedidoServiceImpl implements PedidoService {
             throw new IllegalArgumentException("La dirección no pertenece al usuario");
         }
 
-        // 4. Validar método de pago (debe pertenecer al usuario)
+        // 5. Validar método de pago (debe pertenecer al usuario)
         MetodoPago metodoPago = metodoPagoRepository.findById(metodoPagoId)
                 .orElseThrow(() -> new IllegalArgumentException("Método de pago no encontrado con id " + metodoPagoId));
 
@@ -107,11 +110,11 @@ public class PedidoServiceImpl implements PedidoService {
             throw new IllegalArgumentException("El método de pago no pertenece al usuario");
         }
 
-        // 5. Obtener estado inicial
+        // 6. Obtener estado inicial
         EstadoPedido estadoInicial = estadoPedidoRepository.findByNombre(ESTADO_INICIAL)
                 .orElseThrow(() -> new IllegalStateException("No se encontró el estado de pedido inicial: " + ESTADO_INICIAL));
 
-        // 6. Crear pedido con snapshots
+        // 7. Crear pedido con snapshots
         Pedido pedido = new Pedido();
         pedido.setUsuario(usuario);
         pedido.setEstado(estadoInicial);
@@ -122,7 +125,7 @@ public class PedidoServiceImpl implements PedidoService {
         // SNAPSHOT de método de pago (copiamos los valores, no la referencia)
         pedido.copiarMetodoPago(metodoPago);
 
-        // 7. Convertir ItemCarrito → DetallePedido (snapshots de productos)
+        // 8. Convertir ItemCarrito → DetallePedido (snapshots de productos)
         double total = 0.0;
         double ahorroTotalPedido = 0.0;
 
@@ -167,19 +170,19 @@ public class PedidoServiceImpl implements PedidoService {
             producto.setStock(producto.getStock() - cantidad);
         }
 
-        // 8. Establecer total calculado
+        // 9. Establecer total calculado
         pedido.setTotal(total);
 
-        // 9. Guardar pedido (cascade guarda los detalles automáticamente)
+        // 10. Guardar pedido (cascade guarda los detalles automáticamente)
         Pedido pedidoGuardado = pedidoRepository.save(pedido);
 
-        // 10. Actualizar puntos y ahorro del usuario
+        // 11. Actualizar puntos y ahorro del usuario
         int puntosGanados = (int) Math.floor(total);
         usuario.setPuntos(usuario.getPuntos() + puntosGanados);
         usuario.setAhorroTotal(usuario.getAhorroTotal() + ahorroTotalPedido);
 
-        // 11. Vaciar carrito
-        carrito.getItems().clear();
+        // 12. Vaciar carrito delegando a CarritoService
+        carritoService.vaciarCarrito(usuarioId);
 
         return pedidoGuardado;
     }
