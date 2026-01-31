@@ -16,14 +16,21 @@ import com.animall.api_tienda.model.Pedido;
 import com.animall.api_tienda.model.Producto;
 import com.animall.api_tienda.model.Usuario;
 import com.animall.api_tienda.repository.CarritoRepository;
-import com.animall.api_tienda.repository.DetallePedidoRepository;
 import com.animall.api_tienda.repository.DireccionRepository;
 import com.animall.api_tienda.repository.EstadoPedidoRepository;
 import com.animall.api_tienda.repository.MetodoPagoRepository;
 import com.animall.api_tienda.repository.PedidoRepository;
+import com.animall.api_tienda.repository.ProductoRepository;
 import com.animall.api_tienda.repository.UsuarioRepository;
 import com.animall.api_tienda.service.PedidoService;
 
+/**
+ * Servicio para gestión de pedidos.
+ * 
+ * El pedido es INMUTABLE una vez creado:
+ * - Contiene snapshots de dirección, método de pago y productos
+ * - No depende de entidades vivas que puedan cambiar
+ */
 @Service
 @Transactional
 public class PedidoServiceImpl implements PedidoService {
@@ -36,7 +43,7 @@ public class PedidoServiceImpl implements PedidoService {
     private final DireccionRepository direccionRepository;
     private final MetodoPagoRepository metodoPagoRepository;
     private final EstadoPedidoRepository estadoPedidoRepository;
-    private final DetallePedidoRepository detallePedidoRepository;
+    private final ProductoRepository productoRepository;
 
     public PedidoServiceImpl(PedidoRepository pedidoRepository,
                              UsuarioRepository usuarioRepository,
@@ -44,35 +51,39 @@ public class PedidoServiceImpl implements PedidoService {
                              DireccionRepository direccionRepository,
                              MetodoPagoRepository metodoPagoRepository,
                              EstadoPedidoRepository estadoPedidoRepository,
-                             DetallePedidoRepository detallePedidoRepository) {
+                             ProductoRepository productoRepository) {
         this.pedidoRepository = pedidoRepository;
         this.usuarioRepository = usuarioRepository;
         this.carritoRepository = carritoRepository;
         this.direccionRepository = direccionRepository;
         this.metodoPagoRepository = metodoPagoRepository;
         this.estadoPedidoRepository = estadoPedidoRepository;
-        this.detallePedidoRepository = detallePedidoRepository;
+        this.productoRepository = productoRepository;
     }
 
     /**
      * Confirma un pedido tomando los items del carrito activo del usuario.
+     * 
      * El frontend envía solo direccionId y metodoPagoId.
      * El backend:
-     * 1. Obtiene ItemCarrito del carrito del usuario
-     * 2. Valida stock disponible
-     * 3. Calcula precioUnitario con descuento desde BD
-     * 4. Crea DetallePedido
-     * 5. Calcula el total del pedido
-     * 6. Asigna estado inicial (CREADO)
-     * 7. Actualiza stock de productos
-     * 8. Limpia el carrito
-     * 9. Actualiza puntos y ahorro del usuario
+     * 1. Obtiene el carrito del usuario
+     * 2. Valida que no esté vacío
+     * 3. COPIA los datos de dirección al pedido (snapshot)
+     * 4. COPIA los datos de método de pago al pedido (snapshot)
+     * 5. Convierte cada ItemCarrito en DetallePedido (snapshot del producto)
+     * 6. Calcula el total como suma de subtotales
+     * 7. Asigna estado inicial (CREADO)
+     * 8. Descuenta stock de productos
+     * 9. Vacía el carrito
+     * 10. Actualiza puntos y ahorro del usuario
      */
     @Override
     public Pedido confirmarPedidoDesdeCarrito(Long usuarioId, Long direccionId, Long metodoPagoId) {
+        // 1. Validar usuario
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado con id " + usuarioId));
 
+        // 2. Obtener y validar carrito
         Carrito carrito = carritoRepository.findByUsuario(usuario)
                 .orElseThrow(() -> new IllegalStateException("El usuario no tiene carrito activo"));
 
@@ -80,6 +91,7 @@ public class PedidoServiceImpl implements PedidoService {
             throw new IllegalStateException("El carrito está vacío, no se puede confirmar el pedido");
         }
 
+        // 3. Validar dirección (debe pertenecer al usuario)
         Direccion direccion = direccionRepository.findById(direccionId)
                 .orElseThrow(() -> new IllegalArgumentException("Dirección no encontrada con id " + direccionId));
 
@@ -87,6 +99,7 @@ public class PedidoServiceImpl implements PedidoService {
             throw new IllegalArgumentException("La dirección no pertenece al usuario");
         }
 
+        // 4. Validar método de pago (debe pertenecer al usuario)
         MetodoPago metodoPago = metodoPagoRepository.findById(metodoPagoId)
                 .orElseThrow(() -> new IllegalArgumentException("Método de pago no encontrado con id " + metodoPagoId));
 
@@ -94,10 +107,22 @@ public class PedidoServiceImpl implements PedidoService {
             throw new IllegalArgumentException("El método de pago no pertenece al usuario");
         }
 
+        // 5. Obtener estado inicial
         EstadoPedido estadoInicial = estadoPedidoRepository.findByNombre(ESTADO_INICIAL)
                 .orElseThrow(() -> new IllegalStateException("No se encontró el estado de pedido inicial: " + ESTADO_INICIAL));
 
-        // Validar stock y calcular totales
+        // 6. Crear pedido con snapshots
+        Pedido pedido = new Pedido();
+        pedido.setUsuario(usuario);
+        pedido.setEstado(estadoInicial);
+        
+        // SNAPSHOT de dirección (copiamos los valores, no la referencia)
+        pedido.copiarDireccion(direccion);
+        
+        // SNAPSHOT de método de pago (copiamos los valores, no la referencia)
+        pedido.copiarMetodoPago(metodoPago);
+
+        // 7. Convertir ItemCarrito → DetallePedido (snapshots de productos)
         double total = 0.0;
         double ahorroTotalPedido = 0.0;
 
@@ -105,59 +130,55 @@ public class PedidoServiceImpl implements PedidoService {
             Producto producto = item.getProducto();
             int cantidad = item.getCantidad();
 
+            // Validaciones
             if (cantidad <= 0) {
                 throw new IllegalStateException("Cantidad inválida en el carrito para el producto " + producto.getId());
             }
 
             if (producto.getStock() < cantidad) {
-                throw new IllegalStateException("Stock insuficiente para el producto " + producto.getId());
+                throw new IllegalStateException("Stock insuficiente para el producto '" + producto.getNombre() 
+                        + "' (id=" + producto.getId() + "). Stock disponible: " + producto.getStock() 
+                        + ", cantidad solicitada: " + cantidad);
             }
 
+            // Calcular precio con descuento
             double precioBase = producto.getPrecio();
             int porcentajeDescuento = producto.getPorcentajeDescuento() != null ? producto.getPorcentajeDescuento() : 0;
             double descuentoUnitario = precioBase * porcentajeDescuento / 100.0;
             double precioFinalUnitario = precioBase - descuentoUnitario;
+            double subtotal = precioFinalUnitario * cantidad;
 
-            total += precioFinalUnitario * cantidad;
-            ahorroTotalPedido += descuentoUnitario * cantidad;
-        }
-
-        Pedido pedido = new Pedido();
-        pedido.setUsuario(usuario);
-        pedido.setDireccion(direccion);
-        pedido.setMetodoPago(metodoPago);
-        pedido.setEstado(estadoInicial);
-        pedido.setTotal(total);
-
-        Pedido pedidoGuardado = pedidoRepository.save(pedido);
-
-        // Crear detalles, descontar stock
-        for (ItemCarrito item : carrito.getItems()) {
-            Producto producto = item.getProducto();
-            int cantidad = item.getCantidad();
-
-            double precioBase = producto.getPrecio();
-            int porcentajeDescuento = producto.getPorcentajeDescuento() != null ? producto.getPorcentajeDescuento() : 0;
-            double descuentoUnitario = precioBase * porcentajeDescuento / 100.0;
-            double precioFinalUnitario = precioBase - descuentoUnitario;
-
+            // Crear DetallePedido como SNAPSHOT (sin relación con Producto)
             DetallePedido detalle = new DetallePedido();
-            detalle.setPedido(pedidoGuardado);
-            detalle.setProducto(producto);
+            detalle.setProductoIdOriginal(producto.getId());  // Solo referencia histórica
+            detalle.setNombreProducto(producto.getNombre());   // Snapshot del nombre
+            detalle.setPrecioUnitario(precioFinalUnitario);    // Snapshot del precio
             detalle.setCantidad(cantidad);
-            detalle.setPrecioUnitario(precioFinalUnitario);
-            detallePedidoRepository.save(detalle);
-            pedidoGuardado.getDetalles().add(detalle);
+            detalle.setSubtotal(subtotal);
 
+            // Agregar al pedido (cascade se encarga de persistir)
+            pedido.agregarDetalle(detalle);
+
+            // Acumular totales
+            total += subtotal;
+            ahorroTotalPedido += descuentoUnitario * cantidad;
+
+            // Descontar stock del producto
             producto.setStock(producto.getStock() - cantidad);
         }
 
-        // Actualizar puntos y ahorro del usuario
+        // 8. Establecer total calculado
+        pedido.setTotal(total);
+
+        // 9. Guardar pedido (cascade guarda los detalles automáticamente)
+        Pedido pedidoGuardado = pedidoRepository.save(pedido);
+
+        // 10. Actualizar puntos y ahorro del usuario
         int puntosGanados = (int) Math.floor(total);
         usuario.setPuntos(usuario.getPuntos() + puntosGanados);
         usuario.setAhorroTotal(usuario.getAhorroTotal() + ahorroTotalPedido);
 
-        // Vaciar carrito
+        // 11. Vaciar carrito
         carrito.getItems().clear();
 
         return pedidoGuardado;
@@ -177,18 +198,26 @@ public class PedidoServiceImpl implements PedidoService {
         return pedidoRepository.findByIdWithDetalles(id);
     }
 
+    /**
+     * Cambia el estado de un pedido.
+     * 
+     * Si se cancela antes de entrega, se restituye el stock usando productoIdOriginal
+     * del snapshot para buscar el producto actual.
+     */
     @Override
     public Pedido cambiarEstado(Long pedidoId, String nombreNuevoEstado, boolean esAdmin) {
-        Pedido pedido = pedidoRepository.findById(pedidoId)
+        Pedido pedido = pedidoRepository.findByIdWithDetalles(pedidoId)
                 .orElseThrow(() -> new IllegalArgumentException("Pedido no encontrado con id " + pedidoId));
 
         EstadoPedido estadoActual = pedido.getEstado();
 
+        // Validar que no se modifique un pedido entregado
         if ("ENTREGADO".equalsIgnoreCase(estadoActual.getNombre())
                 && !estadoActual.getNombre().equalsIgnoreCase(nombreNuevoEstado)) {
             throw new IllegalStateException("Un pedido entregado no puede volver a estados anteriores");
         }
 
+        // Solo admin puede cambiar estados (excepto cancelar)
         if (!esAdmin && !"CANCELADO".equalsIgnoreCase(nombreNuevoEstado)) {
             throw new IllegalStateException("Solo un administrador puede cambiar el estado del pedido");
         }
@@ -196,17 +225,22 @@ public class PedidoServiceImpl implements PedidoService {
         EstadoPedido nuevoEstado = estadoPedidoRepository.findByNombre(nombreNuevoEstado)
                 .orElseThrow(() -> new IllegalArgumentException("Estado de pedido no encontrado: " + nombreNuevoEstado));
 
-        // Si se cancela antes de estar entregado, opcionalmente se puede restituir el stock.
+        // Si se cancela antes de estar entregado, restituir stock
         if ("CANCELADO".equalsIgnoreCase(nombreNuevoEstado)
                 && !"ENTREGADO".equalsIgnoreCase(estadoActual.getNombre())) {
+            
             for (DetallePedido detalle : pedido.getDetalles()) {
-                Producto producto = detalle.getProducto();
-                producto.setStock(producto.getStock() + detalle.getCantidad());
+                // Buscar producto por ID original del snapshot
+                Long productoId = detalle.getProductoIdOriginal();
+                if (productoId != null) {
+                    productoRepository.findById(productoId).ifPresent(producto -> {
+                        producto.setStock(producto.getStock() + detalle.getCantidad());
+                    });
+                }
             }
         }
 
         pedido.setEstado(nuevoEstado);
-        return pedidoRepository.findByIdWithDetalles(pedido.getId()).orElse(pedido);
+        return pedido;
     }
 }
-

@@ -9,24 +9,26 @@ import org.springframework.transaction.annotation.Transactional;
 import com.animall.api_tienda.model.Direccion;
 import com.animall.api_tienda.model.Usuario;
 import com.animall.api_tienda.repository.DireccionRepository;
-import com.animall.api_tienda.repository.PedidoRepository;
 import com.animall.api_tienda.repository.UsuarioRepository;
 import com.animall.api_tienda.service.DireccionService;
 
+/**
+ * Servicio para gestión de direcciones de usuario.
+ * 
+ * Nota: Eliminar una dirección NO afecta a los pedidos existentes porque
+ * el Pedido almacena un SNAPSHOT de la dirección al momento de la compra.
+ */
 @Service
 @Transactional
 public class DireccionServiceImpl implements DireccionService {
 
     private final DireccionRepository direccionRepository;
     private final UsuarioRepository usuarioRepository;
-    private final PedidoRepository pedidoRepository;
 
     public DireccionServiceImpl(DireccionRepository direccionRepository,
-                                UsuarioRepository usuarioRepository,
-                                PedidoRepository pedidoRepository) {
+                                UsuarioRepository usuarioRepository) {
         this.direccionRepository = direccionRepository;
         this.usuarioRepository = usuarioRepository;
-        this.pedidoRepository = pedidoRepository;
     }
 
     @Override
@@ -80,9 +82,7 @@ public class DireccionServiceImpl implements DireccionService {
         if (!direccion.getUsuario().getId().equals(usuarioId)) {
             throw new IllegalArgumentException("La dirección no pertenece al usuario");
         }
-        if (pedidoRepository.existsByDireccion(direccion)) {
-            throw new IllegalStateException("No se puede eliminar la dirección porque está asociada a uno o más pedidos.");
-        }
+        // Se puede eliminar libremente porque los pedidos tienen snapshot de la dirección
         direccionRepository.delete(direccion);
     }
 }

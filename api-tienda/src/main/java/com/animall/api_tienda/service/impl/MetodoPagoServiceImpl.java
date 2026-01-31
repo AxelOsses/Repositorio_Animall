@@ -9,24 +9,26 @@ import org.springframework.transaction.annotation.Transactional;
 import com.animall.api_tienda.model.MetodoPago;
 import com.animall.api_tienda.model.Usuario;
 import com.animall.api_tienda.repository.MetodoPagoRepository;
-import com.animall.api_tienda.repository.PedidoRepository;
 import com.animall.api_tienda.repository.UsuarioRepository;
 import com.animall.api_tienda.service.MetodoPagoService;
 
+/**
+ * Servicio para gestión de métodos de pago de usuario.
+ * 
+ * Nota: Eliminar un método de pago NO afecta a los pedidos existentes porque
+ * el Pedido almacena un SNAPSHOT del método de pago al momento de la compra.
+ */
 @Service
 @Transactional
 public class MetodoPagoServiceImpl implements MetodoPagoService {
 
     private final MetodoPagoRepository metodoPagoRepository;
     private final UsuarioRepository usuarioRepository;
-    private final PedidoRepository pedidoRepository;
 
     public MetodoPagoServiceImpl(MetodoPagoRepository metodoPagoRepository,
-                                 UsuarioRepository usuarioRepository,
-                                 PedidoRepository pedidoRepository) {
+                                 UsuarioRepository usuarioRepository) {
         this.metodoPagoRepository = metodoPagoRepository;
         this.usuarioRepository = usuarioRepository;
-        this.pedidoRepository = pedidoRepository;
     }
 
     @Override
@@ -79,9 +81,7 @@ public class MetodoPagoServiceImpl implements MetodoPagoService {
         if (!metodoPago.getUsuario().getId().equals(usuarioId)) {
             throw new IllegalArgumentException("El método de pago no pertenece al usuario");
         }
-        if (pedidoRepository.existsByMetodoPago(metodoPago)) {
-            throw new IllegalStateException("No se puede eliminar el método de pago porque está asociado a uno o más pedidos.");
-        }
+        // Se puede eliminar libremente porque los pedidos tienen snapshot del método de pago
         metodoPagoRepository.delete(metodoPago);
     }
 }

@@ -11,33 +11,42 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Línea del pedido en la respuesta. Sin entidades JPA anidadas.
+ * Línea del pedido en la respuesta.
+ * Refleja el SNAPSHOT inmutable del producto al momento de la compra.
  */
-@Schema(description = "Detalle de una línea del pedido")
+@Schema(description = "Detalle de una línea del pedido (snapshot del producto)")
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 public class DetallePedidoResponseDTO {
 
-    @Schema(description = "ID del producto", example = "1")
-    private Long productoId;
+    @Schema(description = "ID original del producto (referencia histórica)", example = "5")
+    private Long productoIdOriginal;
 
-    @Schema(description = "Nombre del producto", example = "Alimento Premium")
+    @Schema(description = "Nombre del producto al momento de la compra", example = "Alimento Premium para Perros")
     private String nombreProducto;
 
-    @Schema(description = "Cantidad", example = "2")
+    @Schema(description = "Cantidad comprada", example = "2")
     private Integer cantidad;
 
-    @Schema(description = "Precio unitario aplicado", example = "15.99")
+    @Schema(description = "Precio unitario aplicado (con descuento)", example = "15.99")
     private Double precioUnitario;
 
+    @Schema(description = "Subtotal de esta línea (precio × cantidad)", example = "31.98")
+    private Double subtotal;
+
+    /**
+     * Convierte un DetallePedido (snapshot) a DTO.
+     * Los datos vienen directamente del detalle, no de una entidad Producto.
+     */
     public static DetallePedidoResponseDTO from(DetallePedido detalle) {
         if (detalle == null) return null;
         DetallePedidoResponseDTO dto = new DetallePedidoResponseDTO();
-        dto.setProductoId(detalle.getProducto() != null ? detalle.getProducto().getId() : null);
-        dto.setNombreProducto(detalle.getProducto() != null ? detalle.getProducto().getNombre() : null);
+        dto.setProductoIdOriginal(detalle.getProductoIdOriginal());
+        dto.setNombreProducto(detalle.getNombreProducto());
         dto.setCantidad(detalle.getCantidad());
         dto.setPrecioUnitario(detalle.getPrecioUnitario());
+        dto.setSubtotal(detalle.getSubtotal());
         return dto;
     }
 
