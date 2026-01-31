@@ -3,6 +3,7 @@ package com.animall.api_tienda.model;
 import java.time.LocalDate;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -32,6 +33,7 @@ public class CasoSoporte {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_caso_soporte", updatable = false, nullable = false)
+    @JsonProperty("id_caso_soporte")
     private Long id;
 
     @NotBlank

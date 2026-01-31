@@ -1,6 +1,7 @@
 package com.animall.api_tienda.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -28,6 +29,7 @@ public class ItemCarrito {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_item_carrito", updatable = false, nullable = false)
+    @JsonProperty("id_item_carrito")
     private Long id;
 
     @NotNull

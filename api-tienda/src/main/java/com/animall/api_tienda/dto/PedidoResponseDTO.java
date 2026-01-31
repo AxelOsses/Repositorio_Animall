@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 import com.animall.api_tienda.model.Pedido;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
@@ -21,6 +22,7 @@ import lombok.NoArgsConstructor;
 public class PedidoResponseDTO {
 
     @Schema(description = "ID del pedido (generado por el servidor)", example = "1")
+    @JsonProperty("id_pedido")
     private Long id;
 
     @Schema(description = "Fecha del pedido", example = "2026-01-28")

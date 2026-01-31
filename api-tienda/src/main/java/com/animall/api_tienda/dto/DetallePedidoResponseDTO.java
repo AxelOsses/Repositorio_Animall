@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import com.animall.api_tienda.model.DetallePedido;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
@@ -21,6 +22,7 @@ import lombok.NoArgsConstructor;
 public class DetallePedidoResponseDTO {
 
     @Schema(description = "ID original del producto (referencia histórica)", example = "5")
+    @JsonProperty("id_producto_original")
     private Long productoIdOriginal;
 
     @Schema(description = "Nombre del producto al momento de la compra", example = "Alimento Premium para Perros")

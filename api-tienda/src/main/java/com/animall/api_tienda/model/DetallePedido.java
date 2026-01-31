@@ -1,6 +1,7 @@
 package com.animall.api_tienda.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -35,6 +36,7 @@ public class DetallePedido {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_detalle_pedido", updatable = false, nullable = false)
+    @JsonProperty("id_detalle_pedido")
     private Long id;
 
     /**
@@ -42,6 +44,7 @@ public class DetallePedido {
      * Útil para trazabilidad, pero el pedido no depende de que el producto exista.
      */
     @Column(name = "producto_id_original")
+    @JsonProperty("id_producto_original")
     private Long productoIdOriginal;
 
     /**

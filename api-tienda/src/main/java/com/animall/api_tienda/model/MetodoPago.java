@@ -15,6 +15,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
@@ -31,6 +32,7 @@ public class MetodoPago {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_metodo_pago", updatable = false, nullable = false)
     @Schema(accessMode = Schema.AccessMode.READ_ONLY, description = "Generado por el servidor. No enviar en POST.")
+    @JsonProperty("id_metodo_pago")
     private Long id;
 
     @NotBlank
