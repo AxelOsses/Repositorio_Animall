@@ -6,6 +6,8 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.animall.api_tienda.dto.CrearPedidoRequest;
+import com.animall.api_tienda.dto.ItemPedidoRequest;
 import com.animall.api_tienda.model.Carrito;
 import com.animall.api_tienda.model.DetallePedido;
 import com.animall.api_tienda.model.Direccion;
@@ -21,6 +23,7 @@ import com.animall.api_tienda.repository.DireccionRepository;
 import com.animall.api_tienda.repository.EstadoPedidoRepository;
 import com.animall.api_tienda.repository.MetodoPagoRepository;
 import com.animall.api_tienda.repository.PedidoRepository;
+import com.animall.api_tienda.repository.ProductoRepository;
 import com.animall.api_tienda.repository.UsuarioRepository;
 import com.animall.api_tienda.service.PedidoService;
 
@@ -37,6 +40,7 @@ public class PedidoServiceImpl implements PedidoService {
     private final MetodoPagoRepository metodoPagoRepository;
     private final EstadoPedidoRepository estadoPedidoRepository;
     private final DetallePedidoRepository detallePedidoRepository;
+    private final ProductoRepository productoRepository;
 
     public PedidoServiceImpl(PedidoRepository pedidoRepository,
                              UsuarioRepository usuarioRepository,
@@ -44,7 +48,8 @@ public class PedidoServiceImpl implements PedidoService {
                              DireccionRepository direccionRepository,
                              MetodoPagoRepository metodoPagoRepository,
                              EstadoPedidoRepository estadoPedidoRepository,
-                             DetallePedidoRepository detallePedidoRepository) {
+                             DetallePedidoRepository detallePedidoRepository,
+                             ProductoRepository productoRepository) {
         this.pedidoRepository = pedidoRepository;
         this.usuarioRepository = usuarioRepository;
         this.carritoRepository = carritoRepository;
@@ -52,6 +57,110 @@ public class PedidoServiceImpl implements PedidoService {
         this.metodoPagoRepository = metodoPagoRepository;
         this.estadoPedidoRepository = estadoPedidoRepository;
         this.detallePedidoRepository = detallePedidoRepository;
+        this.productoRepository = productoRepository;
+    }
+
+    /**
+     * Crea un pedido directamente desde el DTO (sin pasar por carrito).
+     * El frontend envía solo IDs y cantidades; el backend:
+     * 1. Valida existencia de usuario, dirección, método de pago
+     * 2. Verifica que dirección y método de pago pertenezcan al usuario
+     * 3. Valida existencia de productos y stock disponible
+     * 4. Calcula precio unitario con descuento desde BD
+     * 5. Calcula el total del pedido
+     * 6. Asigna estado inicial (CREADO)
+     * 7. Persiste el pedido completo con sus detalles
+     * 8. Actualiza puntos y ahorro del usuario
+     */
+    @Override
+    public Pedido crearPedidoDirecto(CrearPedidoRequest request) {
+        // 1. Validar usuario
+        Usuario usuario = usuarioRepository.findById(request.getUsuarioId())
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado con id " + request.getUsuarioId()));
+
+        // 2. Validar dirección (debe pertenecer al usuario)
+        Direccion direccion = direccionRepository.findById(request.getDireccionId())
+                .orElseThrow(() -> new IllegalArgumentException("Dirección no encontrada con id " + request.getDireccionId()));
+        if (!direccion.getUsuario().getId().equals(request.getUsuarioId())) {
+            throw new IllegalArgumentException("La dirección no pertenece al usuario");
+        }
+
+        // 3. Validar método de pago (debe pertenecer al usuario)
+        MetodoPago metodoPago = metodoPagoRepository.findById(request.getMetodoPagoId())
+                .orElseThrow(() -> new IllegalArgumentException("Método de pago no encontrado con id " + request.getMetodoPagoId()));
+        if (!metodoPago.getUsuario().getId().equals(request.getUsuarioId())) {
+            throw new IllegalArgumentException("El método de pago no pertenece al usuario");
+        }
+
+        // 4. Obtener estado inicial
+        EstadoPedido estadoInicial = estadoPedidoRepository.findByNombre(ESTADO_INICIAL)
+                .orElseThrow(() -> new IllegalStateException("No se encontró el estado de pedido inicial: " + ESTADO_INICIAL));
+
+        // 5. Validar items, stock y calcular totales
+        double total = 0.0;
+        double ahorroTotalPedido = 0.0;
+
+        // Primera pasada: validar productos y stock
+        for (ItemPedidoRequest item : request.getItems()) {
+            Producto producto = productoRepository.findById(item.getProductoId())
+                    .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado con id " + item.getProductoId()));
+
+            if (producto.getStock() < item.getCantidad()) {
+                throw new IllegalStateException("Stock insuficiente para el producto '" + producto.getNombre() 
+                        + "' (id=" + producto.getId() + "). Stock disponible: " + producto.getStock() 
+                        + ", cantidad solicitada: " + item.getCantidad());
+            }
+
+            // Calcular precio con descuento
+            double precioBase = producto.getPrecio();
+            int porcentajeDescuento = producto.getPorcentajeDescuento() != null ? producto.getPorcentajeDescuento() : 0;
+            double descuentoUnitario = precioBase * porcentajeDescuento / 100.0;
+            double precioFinalUnitario = precioBase - descuentoUnitario;
+
+            total += precioFinalUnitario * item.getCantidad();
+            ahorroTotalPedido += descuentoUnitario * item.getCantidad();
+        }
+
+        // 6. Crear el pedido (agregado raíz)
+        Pedido pedido = new Pedido();
+        pedido.setUsuario(usuario);
+        pedido.setDireccion(direccion);
+        pedido.setMetodoPago(metodoPago);
+        pedido.setEstado(estadoInicial);
+        pedido.setTotal(total);
+
+        // 7. Guardar pedido para obtener ID
+        Pedido pedidoGuardado = pedidoRepository.save(pedido);
+
+        // 8. Crear detalles y descontar stock
+        for (ItemPedidoRequest item : request.getItems()) {
+            Producto producto = productoRepository.findById(item.getProductoId()).orElseThrow();
+
+            double precioBase = producto.getPrecio();
+            int porcentajeDescuento = producto.getPorcentajeDescuento() != null ? producto.getPorcentajeDescuento() : 0;
+            double descuentoUnitario = precioBase * porcentajeDescuento / 100.0;
+            double precioFinalUnitario = precioBase - descuentoUnitario;
+
+            // Crear detalle (entidad interna, vive con el pedido)
+            DetallePedido detalle = new DetallePedido();
+            detalle.setPedido(pedidoGuardado);
+            detalle.setProducto(producto);
+            detalle.setCantidad(item.getCantidad());
+            detalle.setPrecioUnitario(precioFinalUnitario);
+
+            detallePedidoRepository.save(detalle);
+            pedidoGuardado.getDetalles().add(detalle);
+
+            // Descontar stock
+            producto.setStock(producto.getStock() - item.getCantidad());
+        }
+
+        // 9. Actualizar puntos y ahorro del usuario
+        int puntosGanados = (int) Math.floor(total);
+        usuario.setPuntos(usuario.getPuntos() + puntosGanados);
+        usuario.setAhorroTotal(usuario.getAhorroTotal() + ahorroTotalPedido);
+
+        return pedidoGuardado;
     }
 
     @Override

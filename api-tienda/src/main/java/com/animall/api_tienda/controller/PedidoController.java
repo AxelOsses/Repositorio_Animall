@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import com.animall.api_tienda.dto.CrearPedidoRequest;
 import com.animall.api_tienda.dto.PedidoCreateDTO;
 import com.animall.api_tienda.dto.PedidoResponseDTO;
 import com.animall.api_tienda.model.Pedido;
@@ -35,6 +36,39 @@ public class PedidoController {
         this.pedidoService = pedidoService;
     }
 
+    /**
+     * Endpoint principal para crear un pedido directamente (sin usar carrito).
+     * El frontend envía solo IDs y cantidades; el backend calcula todo.
+     * 
+     * Request esperada:
+     * {
+     *   "usuarioId": 1,
+     *   "direccionId": 3,
+     *   "metodoPagoId": 2,
+     *   "items": [
+     *     { "productoId": 5, "cantidad": 2 },
+     *     { "productoId": 8, "cantidad": 1 }
+     *   ]
+     * }
+     */
+    @PostMapping("/pedidos")
+    @Operation(summary = "Crear pedido directo",
+            description = "El frontend envía usuarioId, direccionId, metodoPagoId e items (productoId + cantidad). " +
+                    "El backend valida stock, calcula precios con descuento, asigna estado inicial (CREADO) y persiste todo.")
+    public ResponseEntity<PedidoResponseDTO> crearPedidoDirecto(@Valid @RequestBody CrearPedidoRequest request) {
+        Pedido pedido = pedidoService.crearPedidoDirecto(request);
+        PedidoResponseDTO response = PedidoResponseDTO.from(pedido);
+        URI location = ServletUriComponentsBuilder.fromCurrentContextPath()
+                .path("/api/pedidos/{id}")
+                .buildAndExpand(pedido.getId())
+                .toUri();
+        return ResponseEntity.created(location).body(response);
+    }
+
+    /**
+     * Confirma un pedido tomando los items del carrito del usuario.
+     * Útil cuando el usuario ya agregó productos al carrito.
+     */
     @PostMapping("/usuarios/{usuarioId}/pedidos")
     @Operation(summary = "Confirmar pedido desde carrito",
             description = "Request: solo direccionId y metodoPagoId. Response: pedido generado por el sistema (id, total, estado, detalles, etc.).")
